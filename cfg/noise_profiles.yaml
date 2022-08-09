@@ -1,3 +1,4 @@
+# width of noise distribution, NOT any statistics parameters of the distribution
 noise_profiles:
   - name: r_shoulder_pan_joint
     noise: 0.1
