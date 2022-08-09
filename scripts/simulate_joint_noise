@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+import rospy
+
+from sensor_msgs.msg import JointState
+from moveit_msgs.msg import DisplayRobotState
+
+import threading
+import random
+from copy import deepcopy
+
+class NoiseGenerator:
+	def __init__(self, profiles):
+		self.profiles = profiles
+		self.subscriber = rospy.Subscriber('joint_states', JointState, self.joint_cb, queue_size= 1)
+		self.publisher = rospy.Publisher('robot_state_noisy', DisplayRobotState, queue_size= 1)
+		self.joint_state = None
+		self.joint_lock = threading.Lock()
+
+	def joint_cb(self, msg):
+		with self.joint_lock:
+			self.joint_state= msg
+
+	def run(self):
+		r= rospy.Rate(5)
+		while self.joint_state is None:
+			r.sleep()
+		while not rospy.is_shutdown():
+			rs= DisplayRobotState()
+			with self.joint_lock:
+				rs.state.joint_state= deepcopy(self.joint_state)
+			rs.state.joint_state.position = list(rs.state.joint_state.position)
+			for jnp in self.profiles:
+				try:
+					idx= rs.state.joint_state.name.index(jnp["name"])
+					rs.state.joint_state.position[idx]+= random.uniform(-jnp["noise"]/2, jnp["noise"]/2)
+				except Exception as e:
+					print(e)
+			self.publisher.publish(rs)
+			r.sleep()
+
+def main():
+	noise_p = rospy.get_param('~noise_profiles')
+	ng = NoiseGenerator(noise_p)
+	ng.run()
+
+if __name__ == '__main__':
+	rospy.init_node('simulate_joint_noise')
+	main()
