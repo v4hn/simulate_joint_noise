@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="noise_cfg" doc="yaml file to noise specification" />
+  <node name="simulate_joint_noise" pkg="simulate_joint_noise" type="simulate_joint_noise">
+    <rosparam file="$(arg noise_cfg)" />
+  </node>
+</launch>
