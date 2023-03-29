@@ -2,6 +2,7 @@
 <launch>
   <arg name="noise_cfg" doc="yaml file to noise specification" />
   <node name="simulate_joint_noise" pkg="simulate_joint_noise" type="simulate_joint_noise">
-    <rosparam file="$(arg noise_cfg)" />
+    <rosparam file="$(arg noise_cfg)" if="$(eval noise_cfg[0] == '/')" />
+    <rosparam file="$(env PWD)/$(arg noise_cfg)" unless="$(eval noise_cfg[0] == '/')" />
   </node>
 </launch>

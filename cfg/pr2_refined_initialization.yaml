@@ -1,11 +1,11 @@
 noise_profiles:
   - name: r_shoulder_pan_joint
-    noise: 0.01
+    noise: 0.005
   - name: r_shoulder_lift_joint
-    noise: 0.02
+    noise: 0.01
   - name: r_upper_arm_roll_joint
     noise: 0.02
   - name: r_elbow_flex_joint
     noise: 0.01
   - name: r_forearm_roll_joint
-    noise: 0.01
+    noise: 0.05

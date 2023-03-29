@@ -14,22 +14,22 @@ class NoiseGenerator:
 		self.profiles = profiles
 		self.subscriber = rospy.Subscriber('joint_states', JointState, self.joint_cb, queue_size= 1)
 		self.publisher = rospy.Publisher('robot_state_noisy', DisplayRobotState, queue_size= 1)
-		self.joint_state = None
+		self.js = {}
 		self.joint_lock = threading.Lock()
 
 	def joint_cb(self, msg):
 		with self.joint_lock:
-			self.joint_state= msg
+			self.js.update(zip(msg.name, msg.position))
 
 	def run(self):
 		r= rospy.Rate(5)
-		while self.joint_state is None:
+		while len(self.js) == 0:
 			r.sleep()
 		while not rospy.is_shutdown():
 			rs= DisplayRobotState()
 			with self.joint_lock:
-				rs.state.joint_state= deepcopy(self.joint_state)
-			rs.state.joint_state.position = list(rs.state.joint_state.position)
+				rs.state.joint_state.name = list(self.js.keys())
+				rs.state.joint_state.position = list(self.js.values())
 			for jnp in self.profiles:
 				try:
 					idx= rs.state.joint_state.name.index(jnp["name"])
