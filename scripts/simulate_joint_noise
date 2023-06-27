@@ -3,47 +3,59 @@
 import rospy
 
 from sensor_msgs.msg import JointState
-from moveit_msgs.msg import DisplayRobotState
+from trajectory_msgs.msg import JointTrajectoryPoint
+from moveit_msgs.msg import DisplayRobotState, DisplayTrajectory, RobotTrajectory
 
 import threading
 import random
 from copy import deepcopy
 
 class NoiseGenerator:
-	def __init__(self, profiles):
-		self.profiles = profiles
-		self.subscriber = rospy.Subscriber('joint_states', JointState, self.joint_cb, queue_size= 1)
-		self.publisher = rospy.Publisher('robot_state_noisy', DisplayRobotState, queue_size= 1)
-		self.js = {}
-		self.joint_lock = threading.Lock()
+    def __init__(self, profiles):
+        self.profiles = profiles
+        self.subscriber = rospy.Subscriber('joint_states', JointState, self.joint_cb, queue_size= 1)
+        self.publisher = rospy.Publisher('robot_state_noisy', DisplayRobotState, queue_size= 1)
+        self.traj_publisher = rospy.Publisher('robot_trajectory_noisy', DisplayTrajectory, queue_size= 1)
+        self.js = {}
+        self.joint_lock = threading.Lock()
 
-	def joint_cb(self, msg):
-		with self.joint_lock:
-			self.js.update(zip(msg.name, msg.position))
+    def joint_cb(self, msg):
+        with self.joint_lock:
+            self.js.update(zip(msg.name, msg.position))
 
-	def run(self):
-		r= rospy.Rate(5)
-		while len(self.js) == 0:
-			r.sleep()
-		while not rospy.is_shutdown():
-			rs= DisplayRobotState()
-			with self.joint_lock:
-				rs.state.joint_state.name = list(self.js.keys())
-				rs.state.joint_state.position = list(self.js.values())
-			for jnp in self.profiles:
-				try:
-					idx= rs.state.joint_state.name.index(jnp["name"])
-					rs.state.joint_state.position[idx]+= random.uniform(-jnp["noise"]/2, jnp["noise"]/2)
-				except Exception as e:
-					print(e)
-			self.publisher.publish(rs)
-			r.sleep()
+    def run(self):
+        r= rospy.Rate(5)
+        while len(self.js) == 0:
+            r.sleep()
+        traj= DisplayTrajectory()
+        traj.trajectory.append(RobotTrajectory())
+        while not rospy.is_shutdown():
+            rs= DisplayRobotState()
+            with self.joint_lock:
+                rs.state.joint_state.name = list(self.js.keys())
+                rs.state.joint_state.position = list(self.js.values())
+                traj.trajectory_start.joint_state.name = list(self.js.keys())
+                traj.trajectory_start.joint_state.position = list(self.js.values())
+                traj.trajectory[0].joint_trajectory.joint_names = list(self.js.keys())
+            for jnp in self.profiles:
+                try:
+                    idx= rs.state.joint_state.name.index(jnp["name"])
+                    rs.state.joint_state.position[idx]+= random.uniform(-jnp["noise"]/2, jnp["noise"]/2)
+                except Exception as e:
+                    print(e)
+            traj.trajectory[0].joint_trajectory.points.append(JointTrajectoryPoint())
+            traj.trajectory[0].joint_trajectory.points[-1].positions = deepcopy(rs.state.joint_state.position)
+            if len(traj.trajectory[0].joint_trajectory.points) > 50:
+                traj.trajectory[0].joint_trajectory.points.pop(0)
+            self.publisher.publish(rs)
+            self.traj_publisher.publish(traj)
+            r.sleep()
 
 def main():
-	noise_p = rospy.get_param('~noise_profiles')
-	ng = NoiseGenerator(noise_p)
-	ng.run()
+    noise_p = rospy.get_param('~noise_profiles')
+    ng = NoiseGenerator(noise_p)
+    ng.run()
 
 if __name__ == '__main__':
-	rospy.init_node('simulate_joint_noise')
-	main()
+    rospy.init_node('simulate_joint_noise')
+    main()
