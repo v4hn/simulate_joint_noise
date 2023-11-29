@@ -15,7 +15,7 @@ class NoiseGenerator:
         self.profiles = profiles
         self.subscriber = rospy.Subscriber('joint_states', JointState, self.joint_cb, queue_size= 1)
         self.publisher = rospy.Publisher('robot_state_noisy', DisplayRobotState, queue_size= 1)
-        self.traj_publisher = rospy.Publisher('robot_trajectory_noisy', DisplayTrajectory, queue_size= 1)
+        self.traj_publisher = rospy.Publisher('robot_trajectory_noisy', DisplayTrajectory, queue_size= 1, latch= True)
         self.js = {}
         self.joint_lock = threading.Lock()
 
@@ -45,10 +45,10 @@ class NoiseGenerator:
                     print(e)
             traj.trajectory[0].joint_trajectory.points.append(JointTrajectoryPoint())
             traj.trajectory[0].joint_trajectory.points[-1].positions = deepcopy(rs.state.joint_state.position)
-            if len(traj.trajectory[0].joint_trajectory.points) > 50:
-                traj.trajectory[0].joint_trajectory.points.pop(0)
+            if len(traj.trajectory[0].joint_trajectory.points) > 30:
+                self.traj_publisher.publish(traj)
+                traj.trajectory[0].joint_trajectory.points= []
             self.publisher.publish(rs)
-            self.traj_publisher.publish(traj)
             r.sleep()
 
 def main():
